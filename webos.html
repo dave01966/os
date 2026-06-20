@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>WebOS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;user-select:none;}
+body{width:100vw;height:100vh;overflow:hidden;font-family:'Segoe UI',sans-serif;}
+#desktop{width:100%;height:calc(100% - 48px);background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);position:relative;}
+.desktop-icon{position:absolute;width:80px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;border-radius:8px;cursor:pointer;color:white;font-size:12px;text-align:center;}
+.desktop-icon:hover{background:rgba(255,255,255,0.15);}
+.desktop-icon.selected{background:rgba(255,255,255,0.25);}
+.desktop-icon .dicon{font-size:38px;line-height:1;}
+#taskbar{position:fixed;bottom:0;left:0;right:0;height:48px;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);display:flex;align-items:center;padding:0 8px;gap:4px;z-index:9999;border-top:1px solid rgba(255,255,255,0.1);}
+#start-btn{width:40px;height:36px;background:#0078d4;border:none;border-radius:6px;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;color:white;flex-shrink:0;}
+#start-btn:hover{background:#106ebe;}
+#taskbar-apps{display:flex;gap:4px;flex:1;align-items:center;overflow-x:auto;}
+.taskbar-app-btn{height:36px;padding:0 12px;background:rgba(255,255,255,0.1);border:none;border-radius:6px;cursor:pointer;color:white;font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;}
+.taskbar-app-btn:hover{background:rgba(255,255,255,0.2);}
+.taskbar-app-btn.active{background:rgba(255,255,255,0.25);border-bottom:2px solid #0078d4;}
+.taskbar-app-btn.minimized{opacity:0.55;}
+#clock{color:white;font-size:13px;text-align:center;padding:0 12px;flex-shrink:0;line-height:1.4;}
+#start-menu{position:fixed;bottom:52px;left:8px;width:300px;background:rgba(25,25,25,0.97);backdrop-filter:blur(20px);border-radius:12px;border:1px solid rgba(255,255,255,0.15);padding:16px;display:none;z-index:10000;color:white;}
+#start-menu.open{display:block;}
+#start-menu h3{font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:12px;font-weight:400;text-transform:uppercase;letter-spacing:0.5px;}
+.start-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.start-item{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;border-radius:8px;cursor:pointer;font-size:12px;text-align:center;background:rgba(255,255,255,0.05);}
+.start-item:hover{background:rgba(255,255,255,0.15);}
+.start-item .si{font-size:26px;}
+.window{position:absolute;background:#1e1e1e;border:1px solid rgba(255,255,255,0.15);border-radius:10px;overflow:hidden;min-width:280px;min-height:180px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+.window.focused{box-shadow:0 25px 70px rgba(0,0,0,0.75);}
+.titlebar{height:36px;background:#2d2d2d;display:flex;align-items:center;padding:0 10px;gap:8px;cursor:move;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.08);}
+.win-title{color:white;font-size:13px;flex:1;}
+.win-icon-sm{font-size:15px;}
+.win-controls{display:flex;gap:6px;}
+.wb{width:22px;height:22px;border:none;border-radius:50%;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:bold;}
+.wb:hover{opacity:0.8;}
+.wc{background:#ff5f57;color:#7a1f1f;}
+.wm{background:#febc2e;color:#7a5c00;}
+.wx{background:#28c840;color:#0a4a19;}
+.win-body{flex:1;overflow:hidden;color:white;display:flex;flex-direction:column;}
+.resize-h{position:absolute;width:14px;height:14px;bottom:0;right:0;cursor:se-resize;}
+/* Notepad */
+.np-bar{display:flex;gap:0;background:#252525;border-bottom:1px solid rgba(255,255,255,0.08);padding:4px 8px;}
+.np-menu{background:none;border:none;color:rgba(255,255,255,0.7);font-size:12px;padding:4px 8px;cursor:pointer;border-radius:4px;}
+.np-menu:hover{background:rgba(255,255,255,0.1);color:white;}
+.np-ta{width:100%;flex:1;background:#1e1e1e;color:#d4d4d4;border:none;outline:none;padding:14px;font-family:'Courier New',monospace;font-size:14px;resize:none;line-height:1.7;}
+/* Calculator */
+.calc-disp{background:#111;padding:14px 18px;text-align:right;flex-shrink:0;}
+.calc-expr{color:rgba(255,255,255,0.45);font-size:14px;min-height:20px;}
+.calc-val{color:white;font-size:38px;font-weight:300;margin-top:2px;overflow:hidden;text-overflow:ellipsis;}
+.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#111;padding:1px;flex:1;}
+.cb{border:none;cursor:pointer;font-size:17px;font-weight:300;transition:filter 0.1s;}
+.cb:hover{filter:brightness(1.2);}
+.cb:active{filter:brightness(0.8);}
+.cb.n{background:#2d2d2d;color:white;}
+.cb.o{background:#3d3d3d;color:white;}
+.cb.e{background:#0078d4;color:white;}
+.cb.cl{background:#555;color:white;}
+/* File Manager */
+.fm{display:flex;flex-direction:column;height:100%;}
+.fm-toolbar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#252525;border-bottom:1px solid rgba(255,255,255,0.08);font-size:13px;color:rgba(255,255,255,0.7);flex-shrink:0;}
+.fm-list{flex:1;overflow-y:auto;padding:6px;}
+.fm-item{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:13px;color:white;}
+.fm-item:hover{background:rgba(255,255,255,0.08);}
+.fm-icon{font-size:20px;}
+.fm-name{flex:1;}
+.fm-size{color:rgba(255,255,255,0.4);font-size:12px;}
+/* Terminal */
+.term{background:#0c0c0c;color:#cccccc;font-family:'Courier New',monospace;font-size:13px;padding:12px;flex:1;overflow-y:auto;display:flex;flex-direction:column;}
+.term-out{flex:1;}
+.tline{line-height:1.65;white-space:pre-wrap;}
+.tline.tc{color:#4ec9b0;}
+.tline.te{color:#f48771;}
+.tline.ti{color:#569cd6;}
+.tline.tw{color:#dcdcaa;}
+.tinrow{display:flex;align-items:center;gap:6px;margin-top:2px;}
+.tprompt{color:#4ec9b0;white-space:nowrap;}
+.tinput{background:transparent;border:none;outline:none;color:#cccccc;font-family:'Courier New',monospace;font-size:13px;flex:1;}
+/* Settings */
+.slist{padding:12px;overflow-y:auto;flex:1;}
+.ssec{margin-bottom:18px;}
+.ssec h3{font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;padding:0 4px;}
+.sitem{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:8px;margin-bottom:4px;background:rgba(255,255,255,0.05);}
+.sitem label{font-size:13px;color:white;}
+.sitem span{font-size:12px;color:rgba(255,255,255,0.45);}
+.toggle{width:42px;height:22px;background:#555;border-radius:11px;position:relative;cursor:pointer;transition:background 0.2s;flex-shrink:0;}
+.toggle.on{background:#0078d4;}
+.toggle::after{content:'';position:absolute;width:16px;height:16px;background:white;border-radius:50%;top:3px;left:3px;transition:left 0.2s;}
+.toggle.on::after{left:23px;}
+/* Context menu */
+#ctx{position:fixed;background:rgba(28,28,28,0.97);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:5px;display:none;z-index:20000;min-width:170px;}
+.ctx-i{padding:7px 12px;cursor:pointer;border-radius:5px;color:white;font-size:13px;display:flex;align-items:center;gap:8px;}
+.ctx-i:hover{background:rgba(255,255,255,0.1);}
+.ctx-sep{height:1px;background:rgba(255,255,255,0.1);margin:4px 0;}
+/* Wallpaper thumbs */
+.wp-t{width:56px;height:36px;border-radius:5px;cursor:pointer;border:2px solid transparent;flex-shrink:0;}
+.wp-t.sel{border-color:#0078d4;}
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.2);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div id="desktop"></div>
+
+<div id="taskbar">
+  <button id="start-btn" title="Start">⊞</button>
+  <div id="taskbar-apps"></div>
+  <div id="clock"></div>
+</div>
+
+<div id="start-menu">
+  <h3>Alkalmazások</h3>
+  <div class="start-grid" id="start-grid"></div>
+</div>
+
+<div id="ctx">
+  <div class="ctx-i" onclick="ctx_close();refreshDesktop()">🔄 Frissítés</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-i" onclick="ctx_close();openApp('settings')">⚙️ Beállítások</div>
+  <div class="ctx-i" onclick="ctx_close();openApp('settings')">🖼️ Háttérkép</div>
+</div>
+
+<script>
+const APPS=[
+  {id:'notepad',   name:'Notepad',      icon:'📝', dx:20,  dy:20},
+  {id:'calc',      name:'Számológép',   icon:'🔢', dx:20,  dy:130},
+  {id:'files',     name:'Fájlkezelő',   icon:'📁', dx:20,  dy:240},
+  {id:'terminal',  name:'Terminál',     icon:'🖥️', dx:20,  dy:350},
+  {id:'settings',  name:'Beállítások',  icon:'⚙️', dx:20,  dy:460},
+  {id:'browser',   name:'Böngésző',     icon:'🌐', dx:20,  dy:570},
+];
+
+const WALLS=[
+  'linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)',
+  'linear-gradient(135deg,#0f2027,#203a43,#2c5364)',
+  'linear-gradient(135deg,#12002f,#240046,#3a0ca3)',
+  'linear-gradient(135deg,#000000,#1a1a1a,#000000)',
+  'linear-gradient(135deg,#004400,#006600,#002200)',
+  'linear-gradient(135deg,#2d1b00,#6b3a00,#2d1b00)',
+];
+
+let wins={}, zC=100, activeWin=null, curWall=0;
+
+/* ---- INIT ---- */
+function init(){
+  renderIcons();
+  renderStartGrid();
+  clock();
+  setWall(0);
+  document.getElementById('start-btn').onclick=toggleStart;
+  document.getElementById('desktop').addEventListener('contextmenu',e=>{e.preventDefault();showCtx(e.clientX,e.clientY);});
+  document.addEventListener('click',e=>{
+    if(!e.target.closest('#ctx')) ctx_close();
+    if(!e.target.closest('#start-menu')&&!e.target.closest('#start-btn')) closeStart();
+    if(!e.target.closest('.desktop-icon')) document.querySelectorAll('.desktop-icon').forEach(i=>i.classList.remove('selected'));
+  });
+}
+
+function setWall(i){curWall=i;document.getElementById('desktop').style.background=WALLS[i];}
+
+function renderIcons(){
+  const d=document.getElementById('desktop');
+  APPS.forEach(a=>{
+    const el=document.createElement('div');
+    el.className='desktop-icon';
+    el.style.left=a.dx+'px';el.style.top=a.dy+'px';
+    el.innerHTML=`<div class="dicon">${a.icon}</div><div>${a.name}</div>`;
+    el.ondblclick=()=>openApp(a.id);
+    el.onclick=e=>{e.stopPropagation();document.querySelectorAll('.desktop-icon').forEach(i=>i.classList.remove('selected'));el.classList.add('selected');};
+    d.appendChild(el);
+  });
+}
+
+function renderStartGrid(){
+  const g=document.getElementById('start-grid');
+  APPS.forEach(a=>{
+    const el=document.createElement('div');
+    el.className='start-item';
+    el.innerHTML=`<span class="si">${a.icon}</span><span>${a.name}</span>`;
+    el.onclick=()=>{openApp(a.id);closeStart();};
+    g.appendChild(el);
+  });
+}
+
+function clock(){
+  const c=document.getElementById('clock');
+  setInterval(()=>{
+    const n=new Date();
+    c.innerHTML=`<div>${n.toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'})}</div><div style="font-size:11px;opacity:0.55">${n.toLocaleDateString('hu-HU',{month:'short',day:'numeric'})}</div>`;
+  },1000);
+  document.getElementById('clock').dispatchEvent(new Event('x'));
+}
+
+function toggleStart(){document.getElementById('start-menu').classList.toggle('open');}
+function closeStart(){document.getElementById('start-menu').classList.remove('open');}
+function showCtx(x,y){const c=document.getElementById('ctx');c.style.display='block';c.style.left=x+'px';c.style.top=y+'px';}
+function ctx_close(){document.getElementById('ctx').style.display='none';}
+function refreshDesktop(){/* visual only */}
+
+/* ---- WINDOWS ---- */
+function openApp(id){
+  if(wins[id]){
+    if(wins[id].min) unmin(id);
+    else focusWin(id);
+    return;
+  }
+  const a=APPS.find(x=>x.id===id);
+  makeWin(id,a);
+}
+
+const WSIZES={notepad:[620,460],calc:[280,450],files:[640,480],terminal:[580,420],settings:[460,510],browser:[700,520]};
+
+function makeWin(id,app){
+  const w=document.createElement('div');
+  w.className='window';w.id='w-'+id;
+  const [sw,sh]=WSIZES[id]||[500,400];
+  const off=Object.keys(wins).length;
+  w.style.cssText=`width:${sw}px;height:${sh}px;left:${120+off*28}px;top:${50+off*24}px;z-index:${++zC}`;
+
+  w.innerHTML=`
+    <div class="titlebar" id="tb-${id}">
+      <span class="win-icon-sm">${app.icon}</span>
+      <span class="win-title">${app.name}</span>
+      <div class="win-controls">
+        <button class="wb wm" onclick="minWin('${id}')" title="Minimalizál">─</button>
+        <button class="wb wx" onclick="maxWin('${id}')" title="Maximalizál">□</button>
+        <button class="wb wc" onclick="closeWin('${id}')" title="Bezár">✕</button>
+      </div>
+    </div>
+    <div class="win-body" id="wb-${id}">${buildContent(id)}</div>
+    <div class="resize-h" id="rh-${id}"></div>`;
+
+  document.getElementById('desktop').appendChild(w);
+  makeDrag(w,document.getElementById('tb-'+id),id);
+  makeResize(w,document.getElementById('rh-'+id));
+  w.addEventListener('mousedown',()=>focusWin(id));
+
+  wins[id]={el:w,min:false,max:false,prev:null};
+  addTbBtn(id,app);
+  focusWin(id);
+  afterCreate(id);
+}
+
+function buildContent(id){
+  switch(id){
+    case 'notepad': return `
+      <div class="np-bar">
+        <button class="np-menu" onclick="npNew()">Fájl</button>
+        <button class="np-menu" onclick="npCopy()">Szerkesztés</button>
+        <button class="np-menu">Nézet</button>
+      </div>
+      <textarea class="np-ta" id="np-ta" placeholder="Kezdj el gépelni..."></textarea>`;
+
+    case 'calc': return `
+      <div class="calc-disp">
+        <div class="calc-expr" id="ce"></div>
+        <div class="calc-val" id="cv">0</div>
+      </div>
+      <div class="calc-grid">
+        <button class="cb cl" onclick="cp('C')">C</button>
+        <button class="cb o"  onclick="cp('±')">±</button>
+        <button class="cb o"  onclick="cp('%')">%</button>
+        <button class="cb o"  onclick="cp('÷')">÷</button>
+        <button class="cb n"  onclick="cp('7')">7</button>
+        <button class="cb n"  onclick="cp('8')">8</button>
+        <button class="cb n"  onclick="cp('9')">9</button>
+        <button class="cb o"  onclick="cp('×')">×</button>
+        <button class="cb n"  onclick="cp('4')">4</button>
+        <button class="cb n"  onclick="cp('5')">5</button>
+        <button class="cb n"  onclick="cp('6')">6</button>
+        <button class="cb o"  onclick="cp('−')">−</button>
+        <button class="cb n"  onclick="cp('1')">1</button>
+        <button class="cb n"  onclick="cp('2')">2</button>
+        <button class="cb n"  onclick="cp('3')">3</button>
+        <button class="cb o"  onclick="cp('+')">+</button>
+        <button class="cb n"  style="grid-column:span 2" onclick="cp('0')">0</button>
+        <button class="cb n"  onclick="cp('.')">.</button>
+        <button class="cb e"  onclick="cp('=')">=</button>
+      </div>`;
+
+    case 'files': return buildFiles();
+
+    case 'terminal': return `
+      <div class="term" id="term">
+        <div class="term-out" id="to">
+          <div class="tline ti">WebOS Terminal v1.0 — írj 'help'-et a parancsokhoz</div>
+          <div class="tline"> </div>
+        </div>
+        <div class="tinrow">
+          <span class="tprompt">user@webos:~$&nbsp;</span>
+          <input class="tinput" id="ti" autocomplete="off" spellcheck="false">
+        </div>
+      </div>`;
+
+    case 'settings': return buildSettings();
+
+    case 'browser': return `
+      <div style="display:flex;gap:6px;padding:8px;background:#252525;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;">
+        <button onclick="document.getElementById('bf').src=document.getElementById('bf').src" style="background:#333;border:none;color:white;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:13px;">🔄</button>
+        <input id="burl" value="https://example.com" style="flex:1;background:#333;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:4px 10px;color:white;font-size:13px;outline:none;" onkeydown="if(event.key==='Enter'){document.getElementById('bf').src=this.value;}">
+        <button onclick="document.getElementById('bf').src=document.getElementById('burl').value" style="background:#0078d4;border:none;color:white;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:13px;">Megnyit</button>
+      </div>
+      <iframe id="bf" src="https://example.com" style="flex:1;border:none;background:white;" sandbox="allow-scripts allow-same-origin allow-forms allow-navigation"></iframe>`;
+
+    default: return '<p style="padding:16px">Betöltés...</p>';
+  }
+}
+
+function buildFiles(){
+  const items=[
+    {n:'Dokumentumok',i:'📁',s:'–'},{n:'Képek',i:'📁',s:'–'},{n:'Letöltések',i:'📁',s:'–'},
+    {n:'Zene',i:'📁',s:'–'},{n:'Videók',i:'📁',s:'–'},
+    {n:'README.txt',i:'📄',s:'2 KB'},{n:'notes.txt',i:'📝',s:'5 KB'},
+    {n:'photo.jpg',i:'🖼️',s:'1.2 MB'},{n:'music.mp3',i:'🎵',s:'4.5 MB'},
+    {n:'project.zip',i:'📦',s:'15 MB'},{n:'script.js',i:'📜',s:'8 KB'},
+    {n:'data.csv',i:'📊',s:'120 KB'},
+  ];
+  return `<div class="fm">
+    <div class="fm-toolbar">📍 Saját gép &nbsp;›&nbsp; Kezdőlap</div>
+    <div class="fm-list">${items.map(f=>`<div class="fm-item"><span class="fm-icon">${f.i}</span><span class="fm-name">${f.n}</span><span class="fm-size">${f.s}</span></div>`).join('')}</div>
+  </div>`;
+}
+
+function buildSettings(){
+  return `<div class="slist" id="slist">
+    <div class="ssec">
+      <h3>Megjelenés</h3>
+      <div class="sitem">
+        <div>
+          <label>Háttérkép</label>
+          <div id="wpthumbs" style="display:flex;gap:6px;padding-top:8px;flex-wrap:wrap;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="ssec">
+      <h3>Rendszer</h3>
+      <div class="sitem"><label>Átlátszó taskbar</label><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="sitem"><label>Animációk</label><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="sitem"><label>Értesítések</label><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+      <div class="sitem"><label>Sötét mód</label><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+    </div>
+    <div class="ssec">
+      <h3>Névjegy</h3>
+      <div class="sitem"><label>Rendszer</label><span>WebOS 1.0</span></div>
+      <div class="sitem"><label>Kernel</label><span>JavaScript ES2024</span></div>
+      <div class="sitem"><label>Shell</label><span>WebShell 1.0</span></div>
+    </div>
+  </div>`;
+}
+
+function afterCreate(id){
+  if(id==='terminal') initTerm();
+  if(id==='settings') initSettings();
+}
+
+/* ---- CALC ---- */
+let cs={expr:'',cur:'0',waitOp:false};
+function cp(b){
+  const dv=document.getElementById('cv'),de=document.getElementById('ce');
+  if(!dv) return;
+  if(b==='C'){cs={expr:'',cur:'0',waitOp:false};}
+  else if(b==='±'){cs.cur=String(parseFloat(cs.cur)*-1);}
+  else if(b==='%'){cs.cur=String(parseFloat(cs.cur)/100);}
+  else if(['÷','×','−','+'].includes(b)){cs.expr=cs.cur+' '+b;cs.waitOp=true;}
+  else if(b==='='){
+    try{
+      const r=eval(cs.expr.replace('÷','/').replace('×','*').replace('−','-')+' '+cs.cur);
+      cs.cur=String(parseFloat(r.toFixed(10)));cs.expr='';
+    }catch{cs.cur='Hiba';}
+    cs.waitOp=false;
+  }else if(b==='.'){if(!cs.cur.includes('.'))cs.cur+='.';} 
+  else{cs.cur=(cs.waitOp||cs.cur==='0')?b:cs.cur+b;cs.waitOp=false;}
+  if(dv)dv.textContent=cs.cur;if(de)de.textContent=cs.expr;
+}
+
+/* ---- NOTEPAD ---- */
+function npNew(){if(confirm('Új fájl? A jelenlegi tartalom törlődik.')){const t=document.getElementById('np-ta');if(t)t.value='';}}
+function npCopy(){const t=document.getElementById('np-ta');if(t)navigator.clipboard.writeText(t.value).catch(()=>{});}
+
+/* ---- TERMINAL ---- */
+const CMDS={
+  help:()=>['Elérhető parancsok:','  help       – parancsok listája','  echo [txt] – szöveg kiírása','  date       – dátum/idő','  clear      – törlés','  calc [kif] – számítás','  ls         – fájllista','  whoami     – felhasználó','  uptime     – rendszeridő','  neofetch   – rendszerinfó','  color [0-5]– háttérszín változtatás'],
+  date:()=>[new Date().toLocaleString('hu-HU')],
+  whoami:()=>['user'],
+  ls:()=>['Dokumentumok/  Képek/  Letöltések/  Zene/','README.txt  notes.txt  photo.jpg  music.mp3'],
+  uptime:()=>['Rendszeridő: 0 nap '+Math.floor(Math.random()*24)+'h '+Math.floor(Math.random()*60)+'m'],
+  neofetch:()=>[
+    '        ██████         user@webos',
+    '       ████████        ──────────',
+    '      ██  ██  ██       OS: WebOS 1.0',
+    '      ████████         Kernel: JS ES2024',
+    '     ██████████        Shell: WebShell 1.0',
+    '                       CPU: Browser',
+    '                       RAM: Dynamic',
+  ],
+};
+let termHistory=[],histIdx=-1;
+
+function initTerm(){
+  const inp=document.getElementById('ti');
+  if(!inp)return;
+  inp.focus();
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){const c=inp.value.trim();inp.value='';if(c){termHistory.unshift(c);histIdx=-1;}runCmd(c);}
+    else if(e.key==='ArrowUp'){histIdx=Math.min(histIdx+1,termHistory.length-1);inp.value=termHistory[histIdx]||'';}
+    else if(e.key==='ArrowDown'){histIdx=Math.max(histIdx-1,-1);inp.value=histIdx<0?'':termHistory[histIdx];}
+  });
+  document.getElementById('term').addEventListener('click',()=>inp.focus());
+}
+
+function runCmd(cmd){
+  const out=document.getElementById('to');if(!out)return;
+  const add=(txt,cl='')=>{const d=document.createElement('div');d.className='tline '+(cl);d.textContent=txt;out.appendChild(d);};
+  add('user@webos:~$ '+cmd,'tc');
+  if(!cmd){scrollTerm();return;}
+  const parts=cmd.trim().split(/\s+/);const base=parts[0].toLowerCase();
+  if(base==='clear'){out.innerHTML='';return;}
+  else if(base==='echo'){add(parts.slice(1).join(' '));}
+  else if(base==='calc'){try{add('= '+eval(parts.slice(1).join(' ')));}catch{add('Érvénytelen kifejezés','te');}}
+  else if(base==='color'){const n=parseInt(parts[1]);if(n>=0&&n<=5)setWall(n),add('Háttérszín megváltoztatva.');else add('Érvénytelen szám (0-5)','te');}
+  else if(CMDS[base]){CMDS[base]().forEach(l=>add(l));}
+  else{add(`'${cmd}': parancs nem található. Írd: help`,'te');}
+  scrollTerm();
+}
+
+function scrollTerm(){const t=document.getElementById('term');if(t)t.scrollTop=t.scrollHeight;}
+
+/* ---- SETTINGS ---- */
+function initSettings(){
+  const wp=document.getElementById('wpthumbs');if(!wp)return;
+  WALLS.forEach((w,i)=>{
+    const t=document.createElement('div');
+    t.className='wp-t'+(i===curWall?' sel':'');
+    t.style.background=w;
+    t.onclick=()=>{setWall(i);document.querySelectorAll('.wp-t').forEach(x=>x.classList.remove('sel'));t.classList.add('sel');};
+    wp.appendChild(t);
+  });
+}
+
+/* ---- WINDOW MGMT ---- */
+function focusWin(id){
+  if(activeWin&&wins[activeWin]){
+    wins[activeWin].el.classList.remove('focused');
+    const b=document.querySelector(`.taskbar-app-btn[data-id="${activeWin}"]`);
+    if(b)b.classList.remove('active');
+  }
+  activeWin=id;
+  const w=wins[id];if(!w)return;
+  w.el.style.zIndex=++zC;
+  w.el.classList.add('focused');
+  const b=document.querySelector(`.taskbar-app-btn[data-id="${id}"]`);
+  if(b){b.classList.add('active');b.classList.remove('minimized');}
+}
+
+function minWin(id){
+  const w=wins[id];if(!w)return;
+  w.el.style.display='none';w.min=true;
+  const b=document.querySelector(`.taskbar-app-btn[data-id="${id}"]`);
+  if(b){b.classList.add('minimized');b.classList.remove('active');}
+  if(activeWin===id)activeWin=null;
+}
+
+function unmin(id){
+  const w=wins[id];if(!w)return;
+  w.el.style.display='flex';w.min=false;
+  focusWin(id);
+}
+
+function maxWin(id){
+  const w=wins[id];if(!w)return;
+  if(w.max){
+    const r=w.prev;
+    w.el.style.cssText=`width:${r.w}px;height:${r.h}px;left:${r.l}px;top:${r.t}px;z-index:${++zC};border-radius:10px`;
+    w.max=false;
+  }else{
+    w.prev={w:w.el.offsetWidth,h:w.el.offsetHeight,l:w.el.offsetLeft,t:w.el.offsetTop};
+    w.el.style.cssText=`width:100%;height:calc(100vh - 48px);left:0;top:0;z-index:${++zC};border-radius:0`;
+    w.max=true;
+  }
+}
+
+function closeWin(id){
+  const w=wins[id];if(!w)return;
+  w.el.remove();delete wins[id];
+  const b=document.querySelector(`.taskbar-app-btn[data-id="${id}"]`);
+  if(b)b.remove();
+  if(activeWin===id)activeWin=null;
+}
+
+function addTbBtn(id,app){
+  const b=document.createElement('button');
+  b.className='taskbar-app-btn';b.dataset.id=id;
+  b.innerHTML=app.icon+' '+app.name;
+  b.onclick=()=>{
+    const w=wins[id];if(!w)return;
+    if(w.min)unmin(id);
+    else if(activeWin===id)minWin(id);
+    else focusWin(id);
+  };
+  document.getElementById('taskbar-apps').appendChild(b);
+}
+
+/* ---- DRAG ---- */
+function makeDrag(win,handle,id){
+  let ox,oy;
+  handle.onmousedown=e=>{
+    if(e.target.classList.contains('wb'))return;
+    const w=wins[id];if(w&&w.max)return;
+    focusWin(id);
+    ox=e.clientX-win.offsetLeft;oy=e.clientY-win.offsetTop;
+    document.onmousemove=e=>{
+      let nx=e.clientX-ox,ny=e.clientY-oy;
+      nx=Math.max(0,Math.min(nx,window.innerWidth-win.offsetWidth));
+      ny=Math.max(0,Math.min(ny,window.innerHeight-48-win.offsetHeight));
+      win.style.left=nx+'px';win.style.top=ny+'px';
+    };
+    document.onmouseup=()=>{document.onmousemove=null;};
+  };
+}
+
+/* ---- RESIZE ---- */
+function makeResize(win,handle){
+  handle.onmousedown=e=>{
+    e.stopPropagation();
+    const sw=win.offsetWidth,sh=win.offsetHeight,sx=e.clientX,sy=e.clientY;
+    document.onmousemove=e=>{
+      win.style.width=Math.max(280,sw+e.clientX-sx)+'px';
+      win.style.height=Math.max(180,sh+e.clientY-sy)+'px';
+    };
+    document.onmouseup=()=>{document.onmousemove=null;};
+  };
+}
+
+init();
+</script>
+</body>
+</html>
